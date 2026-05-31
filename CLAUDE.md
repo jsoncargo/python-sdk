@@ -21,7 +21,7 @@ python -m twine upload dist/*
 - Container numbers must match ISO 6346: 4 uppercase letters + 7 digits (e.g. `MSCU1234567`)
 - All HTTP errors map to custom exceptions in `jsoncargo/exceptions.py` — never let raw `requests` exceptions surface
 - `__version__` in `jsoncargo/__init__.py` must stay in sync with `pyproject.toml`
-- Pushing to `main` auto-deploys to the production server via GitHub Actions
+- Tagging a release (e.g. `v0.1.2`) auto-publishes to PyPI via GitHub Actions
 
 ## Structure
 
@@ -31,5 +31,5 @@ jsoncargo/containers.py   # track() and from_bol() + input validation
 jsoncargo/models.py       # Container and BolResult data classes
 jsoncargo/exceptions.py   # JSONCargoError hierarchy
 jsoncargo/__init__.py     # Public exports
-tests/test_client.py      # 24 tests — always add tests for new behaviour
+tests/test_client.py      # 30 tests — always add tests for new behaviour
 ```

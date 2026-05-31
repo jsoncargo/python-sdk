@@ -23,11 +23,11 @@ jsoncargo/
 
 tests/
 ├── __init__.py
-└── test_client.py        # 24 tests (no real API key or network required)
+└── test_client.py        # 30 tests (no real API key or network required)
 
 .github/
 └── workflows/
-    └── deploy.yml        # Auto-deploy to Hetzner server on push to main
+    └── publish.yml       # Auto-publish to PyPI on version tag (e.g. v0.1.2)
 
 pyproject.toml            # Package metadata and dependencies
 README.md                 # User-facing documentation
@@ -52,7 +52,7 @@ All SDK exceptions live in `jsoncargo/exceptions.py` and are exported from the p
 
 ```
 JSONCargoError          # base class
-├── AuthenticationError # 401 — bad API key
+├── AuthenticationError # 401/403 — bad or missing API key
 ├── NotFoundError       # 404 — resource not found
 ├── RateLimitError      # 429 — rate limit exceeded
 └── APIError            # everything else (5xx, timeouts, bad JSON)
@@ -92,9 +92,14 @@ python -m build
 python -m twine upload dist/*
 ```
 
-## Deployment
+## Release & Publishing
 
-Pushing to `main` on GitHub automatically deploys to the production server via GitHub Actions (`.github/workflows/deploy.yml`). The server runs `git pull` then `pip install -e .`.
+Tagging a release on GitHub automatically publishes the package to PyPI via `.github/workflows/publish.yml`.
+
+1. Bump the version in `pyproject.toml` and `jsoncargo/__init__.py` (keep them in sync)
+2. Commit and push
+3. Create and push a version tag: `git tag v0.1.2 && git push origin v0.1.2`
+4. The workflow builds and uploads to PyPI automatically
 
 ## Common Patterns
 
