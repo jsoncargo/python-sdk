@@ -45,7 +45,7 @@ Valid values: `MAERSK`, `HAPAG_LLOYD`, `HMM`, `ONE`, `EVERGREEN`, `MSC`, `CMA_CG
 If omitted or invalid, a `ValueError` is raised immediately (before any HTTP call).
 
 ### 2. Input Validation
-Container numbers are validated against ISO 6346 format: 4 uppercase letters + 7 digits (e.g. `MSCU1234567`). BOL numbers are checked for path traversal characters. Both checks happen in `containers.py` before the HTTP request is made.
+Container numbers are validated against ISO 6346 format: 4 uppercase letters + 7 digits (e.g. `MSCU1234567`). BOL numbers are checked for path traversal and URL-special characters (`/`, `\`, `..`, `%`, `#`, `?`, `&`, `+`, null bytes). Both checks happen in `containers.py` before the HTTP request is made.
 
 ### 3. Exception Hierarchy
 All SDK exceptions live in `jsoncargo/exceptions.py` and are exported from the package root:

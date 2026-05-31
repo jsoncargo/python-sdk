@@ -11,8 +11,8 @@ pytest tests/ -v
 # Build package
 python -m build
 
-# Publish to PyPI
-python -m twine upload dist/*
+# Release to PyPI (bump version first, then tag)
+git tag v0.1.x && git push origin v0.1.x
 ```
 
 ## Key facts
