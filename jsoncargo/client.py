@@ -1,9 +1,12 @@
 import requests
 from .containers import ContainersResource
+from .vessels import VesselsResource
+from .ports import PortsResource
+from .terminals import TerminalsResource
 from .exceptions import APIError, AuthenticationError, NotFoundError, RateLimitError
 
 
-BASE_URL = "http://api.jsoncargo.com/api/v1"
+BASE_URL = "https://api.jsoncargo.com/api/v1"
 
 
 class Client:
@@ -27,6 +30,9 @@ class Client:
         self._session = requests.Session()
         self._session.headers.update({"x-api-key": self._api_key})
         self.containers = ContainersResource(self)
+        self.vessels = VesselsResource(self)
+        self.ports = PortsResource(self)
+        self.terminals = TerminalsResource(self)
 
     def _get(self, path: str, params: dict = None) -> dict:
         url = f"{self._base_url}{path}"

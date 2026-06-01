@@ -1,7 +1,11 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import requests
-from jsoncargo import Client, Container, BolResult, AuthenticationError, NotFoundError, RateLimitError, APIError
+from jsoncargo import (
+    Client, Container, BolResult, VesselBasic, VesselPro, VesselBulkResult,
+    VesselInfo, Port, Terminal,
+    AuthenticationError, NotFoundError, RateLimitError, APIError,
+)
 
 
 MOCK_CONTAINER = {
@@ -50,6 +54,145 @@ MOCK_BOL = {
 }
 
 
+MOCK_VESSEL_BASIC = {
+    "data": {
+        "uuid": "abc-123",
+        "name": "MSC LENA F",
+        "mmsi": "636017123",
+        "imo": "9876543",
+        "eni": None,
+        "country_iso": "LR",
+        "type": "Cargo",
+        "type_specific": "Container Ship",
+        "lat": 1.234,
+        "lon": 103.456,
+        "speed": 12.3,
+        "course": 90.0,
+        "heading": 91,
+        "navigation_status": "Under way using engine",
+        "destination": "ROTTERDAM",
+        "last_position_epoch": 1719500000,
+        "last_position_UTC": "2024-06-27 12:00:00",
+        "eta_epoch": 1720000000,
+        "eta_UTC": "2024-07-03 06:00:00",
+    }
+}
+
+MOCK_VESSEL_PRO = {
+    "data": {
+        "uuid": "abc-123",
+        "name": "MSC LENA F",
+        "mmsi": "636017123",
+        "imo": "9876543",
+        "eni": None,
+        "country_iso": "LR",
+        "type": "Cargo",
+        "type_specific": "Container Ship",
+        "lat": 1.234,
+        "lon": 103.456,
+        "speed": 12.3,
+        "course": 90.0,
+        "heading": 91,
+        "navigation_status": "Under way using engine",
+        "destination": "ROTTERDAM",
+        "last_position_epoch": 1719500000,
+        "last_position_UTC": "2024-06-27 12:00:00",
+        "eta_epoch": 1720000000,
+        "eta_UTC": "2024-07-03 06:00:00",
+        "current_draught": 14.5,
+        "dest_port_uuid": "port-789",
+        "dest_port": "ROTTERDAM",
+        "dest_port_unlocode": "NLRTM",
+        "dep_port_uuid": "port-456",
+        "dep_port": "SINGAPORE",
+        "dep_port_unlocode": "SGSIN",
+        "atd_epoch": 1719000000,
+        "atd_UTC": "2024-06-21 18:00:00",
+        "timezone_offset_sec": 3600,
+        "timezone": "Europe/Amsterdam",
+    }
+}
+
+MOCK_VESSEL_BULK = {
+    "data": {
+        "total": 2,
+        "vessels": [
+            MOCK_VESSEL_BASIC["data"],
+            {**MOCK_VESSEL_BASIC["data"], "eta_epoch": None, "eta_UTC": None},
+        ],
+    }
+}
+
+MOCK_VESSEL_INFO = {
+    "uuid": "abc-123",
+    "name": "MSC LENA F",
+    "name_ais": "MSC LENA F",
+    "mmsi": "636017123",
+    "imo": "9876543",
+    "eni": None,
+    "country_iso": "LR",
+    "country_name": "Liberia",
+    "callsign": "D5XX",
+    "type": "Cargo",
+    "type_specific": "Container Ship",
+    "gross_tonnage": 95000,
+    "deadweight": 110000,
+    "teu": 9000,
+    "liquid_gas": None,
+    "length": 299.9,
+    "breadth": 48.2,
+    "draught_avg": 13.5,
+    "draught_max": 14.5,
+    "speed_avg": 14.0,
+    "speed_max": 22.0,
+    "year_built": 2015,
+    "is_navaid": False,
+    "home_port": "MONROVIA",
+}
+
+MOCK_VESSEL_FINDER = {"data": [MOCK_VESSEL_INFO]}
+
+MOCK_VESSEL_SPECS = {"data": MOCK_VESSEL_INFO}
+
+MOCK_PORT_FIND = {
+    "data": [
+        {
+            "port_name": "ROTTERDAM",
+            "port_code": "RTM",
+            "country": "Netherlands",
+            "lat": 51.95,
+            "lon": 4.13,
+            "port_type": "Seaport",
+            "size": "Large",
+            "area": "Europe",
+            "city": "Rotterdam",
+            "unlocode": "NLRTM",
+            "uuid": "port-789",
+            "country_iso": "NL",
+            "country_name": "Netherlands",
+            "area_lvl1": "Western Europe",
+            "area_lvl2": "North Sea",
+        }
+    ]
+}
+
+MOCK_TERMINAL_FIND = {
+    "data": [
+        {
+            "unlocode": "NLRTM",
+            "alt_unlocode": None,
+            "code": "ECTDELTA",
+            "terminal_name": "ECT DELTA TERMINAL",
+            "company_name": "Hutchison Ports ECT",
+            "lat": 51.95,
+            "lon": 4.05,
+            "url": "https://example.com",
+            "address": "Europaweg 875, Rotterdam",
+        }
+    ]
+}
+
+
 def make_mock_response(data, status_code=200):
     mock = MagicMock()
     mock.json.return_value = data
@@ -80,6 +223,18 @@ class TestClient:
     def test_containers_resource_available(self):
         client = Client("test_key")
         assert client.containers is not None
+
+    def test_vessels_resource_available(self):
+        client = Client("test_key")
+        assert client.vessels is not None
+
+    def test_ports_resource_available(self):
+        client = Client("test_key")
+        assert client.ports is not None
+
+    def test_terminals_resource_available(self):
+        client = Client("test_key")
+        assert client.terminals is not None
 
     def test_default_timeout(self):
         client = Client("test_key")
@@ -263,3 +418,500 @@ class TestExceptions:
         mock_get.return_value = mock
         with pytest.raises(APIError, match="non-JSON"):
             self.client.containers.track("MSCU1234567", shipping_line="MSC")
+
+
+class TestVesselBasic:
+    def setup_method(self):
+        self.client = Client("test_key")
+
+    @patch("requests.Session.get")
+    def test_returns_vessel_basic(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_BASIC)
+        vessel = self.client.vessels.basic(mmsi="636017123")
+        assert isinstance(vessel, VesselBasic)
+        assert vessel.name == "MSC LENA F"
+        assert vessel.mmsi == "636017123"
+        assert vessel.lat == 1.234
+        assert vessel.lon == 103.456
+        assert vessel.eta_epoch == 1720000000
+        assert vessel.raw == MOCK_VESSEL_BASIC["data"]
+
+    @patch("requests.Session.get")
+    def test_none_params_not_sent(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_BASIC)
+        self.client.vessels.basic(mmsi="566093000", page=None, limit=None)
+        _, kwargs = mock_get.call_args
+        assert "page" not in kwargs["params"]
+        assert "limit" not in kwargs["params"]
+
+    @patch("requests.Session.get")
+    def test_calls_correct_url(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_BASIC)
+        self.client.vessels.basic(imo="9876543")
+        args, _ = mock_get.call_args
+        assert args[0].endswith("/vessel/basic")
+
+    @patch("requests.Session.get")
+    def test_passes_params(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_BASIC)
+        self.client.vessels.basic(uuid="abc-123", limit="5")
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"] == {"uuid": "abc-123", "limit": "5"}
+
+    def test_requires_identifier(self):
+        with pytest.raises(ValueError, match="At least one of uuid"):
+            self.client.vessels.basic()
+
+    @patch("requests.Session.get")
+    def test_401_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(401, "Unauthorized")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.basic(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_403_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(403, "Forbidden")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.basic(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_404_raises_not_found_error(self, mock_get):
+        mock_get.return_value = make_error_response(404, "Not Found")
+        with pytest.raises(NotFoundError):
+            self.client.vessels.basic(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_429_raises_rate_limit_error(self, mock_get):
+        mock_get.return_value = make_error_response(429, "Too Many Requests")
+        with pytest.raises(RateLimitError):
+            self.client.vessels.basic(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_500_raises_api_error(self, mock_get):
+        mock_get.return_value = make_error_response(500, "Internal Server Error")
+        with pytest.raises(APIError) as exc_info:
+            self.client.vessels.basic(mmsi="636017123")
+        assert exc_info.value.status_code == 500
+
+
+class TestVesselPro:
+    def setup_method(self):
+        self.client = Client("test_key")
+
+    @patch("requests.Session.get")
+    def test_returns_vessel_pro(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_PRO)
+        vessel = self.client.vessels.pro(mmsi="636017123")
+        assert isinstance(vessel, VesselPro)
+        assert vessel.dest_port == "ROTTERDAM"
+        assert vessel.timezone == "Europe/Amsterdam"
+        assert vessel.atd_epoch == 1719000000
+        assert vessel.current_draught == 14.5
+        assert vessel.raw == MOCK_VESSEL_PRO["data"]
+
+    @patch("requests.Session.get")
+    def test_calls_correct_url(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_PRO)
+        self.client.vessels.pro(mmsi="636017123")
+        args, _ = mock_get.call_args
+        assert args[0].endswith("/vessel/pro")
+
+    @patch("requests.Session.get")
+    def test_passes_params(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_PRO)
+        self.client.vessels.pro(imo="9876543", page="1")
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"] == {"imo": "9876543", "page": "1"}
+
+    def test_requires_identifier(self):
+        with pytest.raises(ValueError, match="At least one of uuid"):
+            self.client.vessels.pro()
+
+    @patch("requests.Session.get")
+    def test_401_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(401, "Unauthorized")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.pro(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_403_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(403, "Forbidden")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.pro(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_404_raises_not_found_error(self, mock_get):
+        mock_get.return_value = make_error_response(404, "Not Found")
+        with pytest.raises(NotFoundError):
+            self.client.vessels.pro(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_429_raises_rate_limit_error(self, mock_get):
+        mock_get.return_value = make_error_response(429, "Too Many Requests")
+        with pytest.raises(RateLimitError):
+            self.client.vessels.pro(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_500_raises_api_error(self, mock_get):
+        mock_get.return_value = make_error_response(500, "Internal Server Error")
+        with pytest.raises(APIError) as exc_info:
+            self.client.vessels.pro(mmsi="636017123")
+        assert exc_info.value.status_code == 500
+
+
+class TestVesselBulk:
+    def setup_method(self):
+        self.client = Client("test_key")
+
+    @patch("requests.Session.get")
+    def test_returns_bulk_result(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_BULK)
+        result = self.client.vessels.bulk(mmsi="636017123")
+        assert isinstance(result, VesselBulkResult)
+        assert result.total == 2
+        assert len(result.vessels) == 2
+        assert all(isinstance(v, VesselBasic) for v in result.vessels)
+        assert result.vessels[1].eta_epoch is None
+        assert result.raw is not None
+        assert result.vessels[0].name == "MSC LENA F"
+
+    @patch("requests.Session.get")
+    def test_calls_correct_url(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_BULK)
+        self.client.vessels.bulk(mmsi="636017123")
+        args, _ = mock_get.call_args
+        assert args[0].endswith("/vessel/bulk")
+
+    @patch("requests.Session.get")
+    def test_passes_params(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_BULK)
+        self.client.vessels.bulk(uuid="abc-123")
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"] == {"uuid": "abc-123"}
+
+    def test_requires_identifier(self):
+        with pytest.raises(ValueError, match="At least one of uuid"):
+            self.client.vessels.bulk()
+
+    @patch("requests.Session.get")
+    def test_401_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(401, "Unauthorized")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.bulk(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_403_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(403, "Forbidden")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.bulk(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_404_raises_not_found_error(self, mock_get):
+        mock_get.return_value = make_error_response(404, "Not Found")
+        with pytest.raises(NotFoundError):
+            self.client.vessels.bulk(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_429_raises_rate_limit_error(self, mock_get):
+        mock_get.return_value = make_error_response(429, "Too Many Requests")
+        with pytest.raises(RateLimitError):
+            self.client.vessels.bulk(mmsi="636017123")
+
+    @patch("requests.Session.get")
+    def test_500_raises_api_error(self, mock_get):
+        mock_get.return_value = make_error_response(500, "Internal Server Error")
+        with pytest.raises(APIError) as exc_info:
+            self.client.vessels.bulk(mmsi="636017123")
+        assert exc_info.value.status_code == 500
+
+
+class TestVesselFinder:
+    def setup_method(self):
+        self.client = Client("test_key")
+
+    @patch("requests.Session.get")
+    def test_returns_list_of_vessel_info(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_FINDER)
+        result = self.client.vessels.finder(name="MSC LENA")
+        assert isinstance(result, list)
+        assert isinstance(result[0], VesselInfo)
+        assert result[0].name == "MSC LENA F"
+        assert result[0].gross_tonnage == 95000
+        assert result[0].is_navaid is False
+        assert result[0].teu == 9000
+        assert result[0].home_port == "MONROVIA"
+        assert result[0].raw == MOCK_VESSEL_INFO
+
+    @patch("requests.Session.get")
+    def test_returns_empty_list(self, mock_get):
+        mock_get.return_value = make_mock_response({"data": []})
+        result = self.client.vessels.finder(name="NONEXISTENT")
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_calls_correct_url(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_FINDER)
+        self.client.vessels.finder(name="MSC LENA")
+        args, _ = mock_get.call_args
+        assert args[0].endswith("/vessel/finder")
+
+    @patch("requests.Session.get")
+    def test_maps_vessel_type_to_type_param(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_FINDER)
+        self.client.vessels.finder(vessel_type="Cargo", fuzzy=1)
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"] == {"type": "Cargo", "fuzzy": 1}
+
+    @patch("requests.Session.get")
+    def test_passes_spec_filters(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_FINDER)
+        self.client.vessels.finder(name="X", gross_tonnage_min=1000, length_max=300.0)
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"] == {"name": "X", "gross_tonnage_min": 1000, "length_max": 300.0}
+
+    def test_requires_search_param(self):
+        with pytest.raises(ValueError, match="At least one search parameter"):
+            self.client.vessels.finder()
+
+    @patch("requests.Session.get")
+    def test_401_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(401, "Unauthorized")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.finder(name="MSC")
+
+    @patch("requests.Session.get")
+    def test_403_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(403, "Forbidden")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.finder(name="MSC")
+
+    @patch("requests.Session.get")
+    def test_404_raises_not_found_error(self, mock_get):
+        mock_get.return_value = make_error_response(404, "Not Found")
+        with pytest.raises(NotFoundError):
+            self.client.vessels.finder(name="MSC")
+
+    @patch("requests.Session.get")
+    def test_429_raises_rate_limit_error(self, mock_get):
+        mock_get.return_value = make_error_response(429, "Too Many Requests")
+        with pytest.raises(RateLimitError):
+            self.client.vessels.finder(name="MSC")
+
+    @patch("requests.Session.get")
+    def test_500_raises_api_error(self, mock_get):
+        mock_get.return_value = make_error_response(500, "Internal Server Error")
+        with pytest.raises(APIError) as exc_info:
+            self.client.vessels.finder(name="MSC")
+        assert exc_info.value.status_code == 500
+
+
+class TestVesselSpecs:
+    def setup_method(self):
+        self.client = Client("test_key")
+
+    @patch("requests.Session.get")
+    def test_returns_vessel_info(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_SPECS)
+        vessel = self.client.vessels.specs(imo="9876543")
+        assert isinstance(vessel, VesselInfo)
+        assert vessel.imo == "9876543"
+        assert vessel.deadweight == 110000
+        assert vessel.gross_tonnage == 95000
+        assert vessel.teu == 9000
+        assert vessel.is_navaid is False
+
+    @patch("requests.Session.get")
+    def test_calls_correct_url(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_SPECS)
+        self.client.vessels.specs(imo="9876543")
+        args, _ = mock_get.call_args
+        assert args[0].endswith("/vessel/specs")
+
+    @patch("requests.Session.get")
+    def test_passes_params(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_VESSEL_SPECS)
+        self.client.vessels.specs(mmsi="636017123")
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"] == {"mmsi": "636017123"}
+
+    def test_requires_identifier(self):
+        with pytest.raises(ValueError, match="At least one of uuid"):
+            self.client.vessels.specs()
+
+    @patch("requests.Session.get")
+    def test_401_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(401, "Unauthorized")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.specs(imo="9876543")
+
+    @patch("requests.Session.get")
+    def test_403_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(403, "Forbidden")
+        with pytest.raises(AuthenticationError):
+            self.client.vessels.specs(imo="9876543")
+
+    @patch("requests.Session.get")
+    def test_404_raises_not_found_error(self, mock_get):
+        mock_get.return_value = make_error_response(404, "Not Found")
+        with pytest.raises(NotFoundError):
+            self.client.vessels.specs(imo="9876543")
+
+    @patch("requests.Session.get")
+    def test_429_raises_rate_limit_error(self, mock_get):
+        mock_get.return_value = make_error_response(429, "Too Many Requests")
+        with pytest.raises(RateLimitError):
+            self.client.vessels.specs(imo="9876543")
+
+    @patch("requests.Session.get")
+    def test_500_raises_api_error(self, mock_get):
+        mock_get.return_value = make_error_response(500, "Internal Server Error")
+        with pytest.raises(APIError) as exc_info:
+            self.client.vessels.specs(imo="9876543")
+        assert exc_info.value.status_code == 500
+
+
+class TestPortFinder:
+    def setup_method(self):
+        self.client = Client("test_key")
+
+    @patch("requests.Session.get")
+    def test_returns_list_of_ports(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_PORT_FIND)
+        result = self.client.ports.find(name="ROTTERDAM")
+        assert isinstance(result, list)
+        assert isinstance(result[0], Port)
+        assert result[0].port_name == "ROTTERDAM"
+        assert result[0].unlocode == "NLRTM"
+        assert result[0].area_lvl1 == "Western Europe"
+        assert result[0].lat == 51.95
+        assert result[0].raw == MOCK_PORT_FIND["data"][0]
+
+    @patch("requests.Session.get")
+    def test_returns_empty_list(self, mock_get):
+        mock_get.return_value = make_mock_response({"data": []})
+        result = self.client.ports.find(name="NONEXISTENT")
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_calls_correct_url(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_PORT_FIND)
+        self.client.ports.find(name="ROTTERDAM")
+        args, _ = mock_get.call_args
+        assert args[0].endswith("/port/find")
+
+    @patch("requests.Session.get")
+    def test_passes_params(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_PORT_FIND)
+        self.client.ports.find(lat=51.95, lon=4.13, radius=10.0)
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"] == {"lat": 51.95, "lon": 4.13, "radius": 10.0}
+
+    def test_requires_search_param(self):
+        with pytest.raises(ValueError, match="At least one search parameter"):
+            self.client.ports.find()
+
+    @patch("requests.Session.get")
+    def test_401_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(401, "Unauthorized")
+        with pytest.raises(AuthenticationError):
+            self.client.ports.find(name="ROTTERDAM")
+
+    @patch("requests.Session.get")
+    def test_403_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(403, "Forbidden")
+        with pytest.raises(AuthenticationError):
+            self.client.ports.find(name="ROTTERDAM")
+
+    @patch("requests.Session.get")
+    def test_404_raises_not_found_error(self, mock_get):
+        mock_get.return_value = make_error_response(404, "Not Found")
+        with pytest.raises(NotFoundError):
+            self.client.ports.find(name="ROTTERDAM")
+
+    @patch("requests.Session.get")
+    def test_429_raises_rate_limit_error(self, mock_get):
+        mock_get.return_value = make_error_response(429, "Too Many Requests")
+        with pytest.raises(RateLimitError):
+            self.client.ports.find(name="ROTTERDAM")
+
+    @patch("requests.Session.get")
+    def test_500_raises_api_error(self, mock_get):
+        mock_get.return_value = make_error_response(500, "Internal Server Error")
+        with pytest.raises(APIError) as exc_info:
+            self.client.ports.find(name="ROTTERDAM")
+        assert exc_info.value.status_code == 500
+
+
+class TestTerminalFinder:
+    def setup_method(self):
+        self.client = Client("test_key")
+
+    @patch("requests.Session.get")
+    def test_returns_list_of_terminals(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_TERMINAL_FIND)
+        result = self.client.terminals.find("NLRTM")
+        assert isinstance(result, list)
+        assert isinstance(result[0], Terminal)
+        assert result[0].terminal_name == "ECT DELTA TERMINAL"
+        assert result[0].unlocode == "NLRTM"
+        assert result[0].company_name == "Hutchison Ports ECT"
+        assert result[0].raw == MOCK_TERMINAL_FIND["data"][0]
+
+    @patch("requests.Session.get")
+    def test_returns_empty_list(self, mock_get):
+        mock_get.return_value = make_mock_response({"data": []})
+        result = self.client.terminals.find("NLRTM")
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_calls_correct_url(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_TERMINAL_FIND)
+        self.client.terminals.find("NLRTM")
+        args, _ = mock_get.call_args
+        assert args[0].endswith("/terminal")
+
+    @patch("requests.Session.get")
+    def test_passes_params(self, mock_get):
+        mock_get.return_value = make_mock_response(MOCK_TERMINAL_FIND)
+        self.client.terminals.find("NL", page="2", limit="10")
+        _, kwargs = mock_get.call_args
+        assert kwargs["params"] == {"unlocode": "NL", "page": "2", "limit": "10"}
+
+    def test_unlocode_too_short(self):
+        with pytest.raises(ValueError, match="at least 2 characters"):
+            self.client.terminals.find("N")
+
+    def test_unlocode_empty(self):
+        with pytest.raises(ValueError, match="at least 2 characters"):
+            self.client.terminals.find("")
+
+    @patch("requests.Session.get")
+    def test_401_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(401, "Unauthorized")
+        with pytest.raises(AuthenticationError):
+            self.client.terminals.find("NLRTM")
+
+    @patch("requests.Session.get")
+    def test_403_raises_authentication_error(self, mock_get):
+        mock_get.return_value = make_error_response(403, "Forbidden")
+        with pytest.raises(AuthenticationError):
+            self.client.terminals.find("NLRTM")
+
+    @patch("requests.Session.get")
+    def test_404_raises_not_found_error(self, mock_get):
+        mock_get.return_value = make_error_response(404, "Not Found")
+        with pytest.raises(NotFoundError):
+            self.client.terminals.find("NLRTM")
+
+    @patch("requests.Session.get")
+    def test_429_raises_rate_limit_error(self, mock_get):
+        mock_get.return_value = make_error_response(429, "Too Many Requests")
+        with pytest.raises(RateLimitError):
+            self.client.terminals.find("NLRTM")
+
+    @patch("requests.Session.get")
+    def test_500_raises_api_error(self, mock_get):
+        mock_get.return_value = make_error_response(500, "Internal Server Error")
+        with pytest.raises(APIError) as exc_info:
+            self.client.terminals.find("NLRTM")
+        assert exc_info.value.status_code == 500

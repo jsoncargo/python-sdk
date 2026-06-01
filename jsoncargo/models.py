@@ -99,3 +99,291 @@ class BolResult:
             f"BolResult(bol={self.bill_of_lading!r}, "
             f"containers={self.associated_containers})"
         )
+
+
+class VesselBasic:
+    """
+    Represents a vessel from the basic tracking endpoint.
+
+    Attributes:
+        uuid (str): Internal vessel UUID
+        name (str): Vessel name
+        mmsi (str): Maritime Mobile Service Identity
+        imo (str): IMO number
+        eni (str): European Number of Identification
+        country_iso (str): Flag country ISO code
+        type (str): Vessel type
+        type_specific (str): Specific vessel type
+        lat (float): Latitude
+        lon (float): Longitude
+        speed (float): Speed over ground
+        course (float): Course over ground
+        heading (float): True heading
+        navigation_status (str): AIS navigation status
+        destination (str): Reported destination
+        last_position_epoch (int): Last position time (epoch seconds)
+        last_position_UTC (str): Last position time (UTC string)
+        eta_epoch (int): ETA (epoch seconds)
+        eta_UTC (str): ETA (UTC string)
+        raw (dict): Full raw response data
+    """
+
+    def __init__(self, data: dict):
+        self.uuid = data.get("uuid")
+        self.name = data.get("name")
+        self.mmsi = data.get("mmsi")
+        self.imo = data.get("imo")
+        self.eni = data.get("eni")
+        self.country_iso = data.get("country_iso")
+        self.type = data.get("type")
+        self.type_specific = data.get("type_specific")
+        self.lat = data.get("lat")
+        self.lon = data.get("lon")
+        self.speed = data.get("speed")
+        self.course = data.get("course")
+        self.heading = data.get("heading")
+        self.navigation_status = data.get("navigation_status")
+        self.destination = data.get("destination")
+        self.last_position_epoch = data.get("last_position_epoch")
+        self.last_position_UTC = data.get("last_position_UTC")
+        self.eta_epoch = data.get("eta_epoch")
+        self.eta_UTC = data.get("eta_UTC")
+        self.raw = data
+
+    def __repr__(self):
+        return f"VesselBasic(name={self.name!r}, mmsi={self.mmsi!r})"
+
+
+class VesselPro:
+    """
+    Represents a vessel from the pro tracking endpoint (superset of basic).
+
+    Attributes:
+        uuid (str): Internal vessel UUID
+        name (str): Vessel name
+        mmsi (str): Maritime Mobile Service Identity
+        imo (str): IMO number
+        eni (str): European Number of Identification
+        country_iso (str): Flag country ISO code
+        type (str): Vessel type
+        type_specific (str): Specific vessel type
+        lat (float): Latitude
+        lon (float): Longitude
+        speed (float): Speed over ground
+        course (float): Course over ground
+        heading (float): True heading
+        navigation_status (str): AIS navigation status
+        destination (str): Reported destination
+        last_position_epoch (int): Last position time (epoch seconds)
+        last_position_UTC (str): Last position time (UTC string)
+        eta_epoch (int): ETA (epoch seconds)
+        eta_UTC (str): ETA (UTC string)
+        current_draught (float): Current draught
+        dest_port_uuid (str): Destination port UUID
+        dest_port (str): Destination port name
+        dest_port_unlocode (str): Destination port UN/LOCODE
+        dep_port_uuid (str): Departure port UUID
+        dep_port (str): Departure port name
+        dep_port_unlocode (str): Departure port UN/LOCODE
+        atd_epoch (int): Actual time of departure (epoch seconds)
+        atd_UTC (str): Actual time of departure (UTC string)
+        timezone_offset_sec (int): Timezone offset in seconds
+        timezone (str): Timezone name
+        raw (dict): Full raw response data
+    """
+
+    def __init__(self, data: dict):
+        self.uuid = data.get("uuid")
+        self.name = data.get("name")
+        self.mmsi = data.get("mmsi")
+        self.imo = data.get("imo")
+        self.eni = data.get("eni")
+        self.country_iso = data.get("country_iso")
+        self.type = data.get("type")
+        self.type_specific = data.get("type_specific")
+        self.lat = data.get("lat")
+        self.lon = data.get("lon")
+        self.speed = data.get("speed")
+        self.course = data.get("course")
+        self.heading = data.get("heading")
+        self.navigation_status = data.get("navigation_status")
+        self.destination = data.get("destination")
+        self.last_position_epoch = data.get("last_position_epoch")
+        self.last_position_UTC = data.get("last_position_UTC")
+        self.eta_epoch = data.get("eta_epoch")
+        self.eta_UTC = data.get("eta_UTC")
+        self.current_draught = data.get("current_draught")
+        self.dest_port_uuid = data.get("dest_port_uuid")
+        self.dest_port = data.get("dest_port")
+        self.dest_port_unlocode = data.get("dest_port_unlocode")
+        self.dep_port_uuid = data.get("dep_port_uuid")
+        self.dep_port = data.get("dep_port")
+        self.dep_port_unlocode = data.get("dep_port_unlocode")
+        self.atd_epoch = data.get("atd_epoch")
+        self.atd_UTC = data.get("atd_UTC")
+        self.timezone_offset_sec = data.get("timezone_offset_sec")
+        self.timezone = data.get("timezone")
+        self.raw = data
+
+    def __repr__(self):
+        return f"VesselPro(name={self.name!r}, mmsi={self.mmsi!r})"
+
+
+class VesselBulkResult:
+    """
+    Represents the result of a bulk vessel tracking lookup.
+
+    Attributes:
+        total (int): Total number of vessels returned
+        vessels (list[VesselBasic]): List of VesselBasic objects
+        raw (dict): Full raw response data
+    """
+
+    def __init__(self, data: dict):
+        self.total = data.get("total")
+        self.vessels = [VesselBasic(v) for v in data.get("vessels", [])]
+        self.raw = data
+
+    def __repr__(self):
+        return f"VesselBulkResult(total={self.total})"
+
+
+class VesselInfo:
+    """
+    Represents a vessel's specification from the finder and specs endpoints.
+
+    Attributes:
+        uuid (str): Internal vessel UUID
+        name (str): Vessel name
+        name_ais (str): Vessel name as broadcast over AIS
+        mmsi (str): Maritime Mobile Service Identity
+        imo (str): IMO number
+        eni (str): European Number of Identification
+        country_iso (str): Flag country ISO code
+        country_name (str): Flag country name
+        callsign (str): Radio callsign
+        type (str): Vessel type
+        type_specific (str): Specific vessel type
+        gross_tonnage (int): Gross tonnage
+        deadweight (int): Deadweight tonnage
+        teu (int): Twenty-foot equivalent unit capacity
+        liquid_gas (float): Liquid gas capacity
+        length (float): Overall length
+        breadth (float): Breadth
+        draught_avg (float): Average draught
+        draught_max (float): Maximum draught
+        speed_avg (float): Average speed
+        speed_max (float): Maximum speed
+        year_built (int): Year built
+        is_navaid (bool): Whether the vessel is a navigation aid
+        home_port (str): Home port
+        raw (dict): Full raw response data
+    """
+
+    def __init__(self, data: dict):
+        self.uuid = data.get("uuid")
+        self.name = data.get("name")
+        self.name_ais = data.get("name_ais")
+        self.mmsi = data.get("mmsi")
+        self.imo = data.get("imo")
+        self.eni = data.get("eni")
+        self.country_iso = data.get("country_iso")
+        self.country_name = data.get("country_name")
+        self.callsign = data.get("callsign")
+        self.type = data.get("type")
+        self.type_specific = data.get("type_specific")
+        self.gross_tonnage = data.get("gross_tonnage")
+        self.deadweight = data.get("deadweight")
+        self.teu = data.get("teu")
+        self.liquid_gas = data.get("liquid_gas")
+        self.length = data.get("length")
+        self.breadth = data.get("breadth")
+        self.draught_avg = data.get("draught_avg")
+        self.draught_max = data.get("draught_max")
+        self.speed_avg = data.get("speed_avg")
+        self.speed_max = data.get("speed_max")
+        self.year_built = data.get("year_built")
+        self.is_navaid = data.get("is_navaid")
+        self.home_port = data.get("home_port")
+        self.raw = data
+
+    def __repr__(self):
+        return f"VesselInfo(name={self.name!r}, imo={self.imo!r})"
+
+
+class Port:
+    """
+    Represents a port from the port finder endpoint.
+
+    Attributes:
+        port_name (str): Port name
+        port_code (str): Port code
+        country (str): Country
+        lat (float): Latitude
+        lon (float): Longitude
+        port_type (str): Port type
+        size (str): Port size
+        area (str): Area
+        city (str): City
+        unlocode (str): UN/LOCODE
+        uuid (str): Internal port UUID
+        country_iso (str): Country ISO code
+        country_name (str): Country name
+        area_lvl1 (str): Area level 1
+        area_lvl2 (str): Area level 2
+        raw (dict): Full raw response data
+    """
+
+    def __init__(self, data: dict):
+        self.port_name = data.get("port_name")
+        self.port_code = data.get("port_code")
+        self.country = data.get("country")
+        self.lat = data.get("lat")
+        self.lon = data.get("lon")
+        self.port_type = data.get("port_type")
+        self.size = data.get("size")
+        self.area = data.get("area")
+        self.city = data.get("city")
+        self.unlocode = data.get("unlocode")
+        self.uuid = data.get("uuid")
+        self.country_iso = data.get("country_iso")
+        self.country_name = data.get("country_name")
+        self.area_lvl1 = data.get("area_lvl1")
+        self.area_lvl2 = data.get("area_lvl2")
+        self.raw = data
+
+    def __repr__(self):
+        return f"Port(name={self.port_name!r}, unlocode={self.unlocode!r})"
+
+
+class Terminal:
+    """
+    Represents a terminal from the terminal finder endpoint.
+
+    Attributes:
+        unlocode (str): UN/LOCODE
+        alt_unlocode (str): Alternative UN/LOCODE
+        code (str): Terminal code
+        terminal_name (str): Terminal name
+        company_name (str): Operating company name
+        lat (float): Latitude
+        lon (float): Longitude
+        url (str): Terminal URL
+        address (str): Terminal address
+        raw (dict): Full raw response data
+    """
+
+    def __init__(self, data: dict):
+        self.unlocode = data.get("unlocode")
+        self.alt_unlocode = data.get("alt_unlocode")
+        self.code = data.get("code")
+        self.terminal_name = data.get("terminal_name")
+        self.company_name = data.get("company_name")
+        self.lat = data.get("lat")
+        self.lon = data.get("lon")
+        self.url = data.get("url")
+        self.address = data.get("address")
+        self.raw = data
+
+    def __repr__(self):
+        return f"Terminal(name={self.terminal_name!r}, unlocode={self.unlocode!r})"
