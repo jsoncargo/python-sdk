@@ -1,10 +1,10 @@
-# JSONCargo Python SDK — Shipping Container Tracking API Client
+# JSONCargo Python SDK
 
 [![PyPI version](https://img.shields.io/pypi/v/jsoncargo.svg)](https://pypi.org/project/jsoncargo/)
 [![Python versions](https://img.shields.io/pypi/pyversions/jsoncargo.svg)](https://pypi.org/project/jsoncargo/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The official Python SDK for the [JSONCargo](https://jsoncargo.com) container tracking API. Track shipping containers by number, look up bills of lading, track vessels in real time, search ports and terminals, and monitor your API usage — all with a single `pip install`.
+The official Python SDK for the [JSONCargo](https://jsoncargo.com) container tracking API. Track shipping containers by number, look up bills of lading, track vessels in real time, search ports and terminals, and monitor your API usage, all with a single `pip install`.
 
 ```bash
 pip install jsoncargo
@@ -161,7 +161,7 @@ Use `vessel_type` (not `type`) to avoid shadowing Python's built-in.
 
 ### Vessel specifications
 
-Static technical specifications — dimensions, capacity, build year, and identifiers.
+Static technical specifications, including dimensions, capacity, build year, and identifiers.
 
 ```python
 info = client.vessels.specs(imo="9525338")
@@ -233,7 +233,7 @@ print(stats["requests_available"])  # 1953
 
 ## Error Handling
 
-All errors raise SDK-specific exceptions — never raw `requests` exceptions.
+All errors raise SDK-specific exceptions, never raw `requests` exceptions.
 
 ```python
 from jsoncargo import (

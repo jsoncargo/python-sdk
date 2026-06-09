@@ -6,7 +6,7 @@ from .terminals import TerminalsResource
 from .exceptions import APIError, AuthenticationError, NotFoundError, RateLimitError
 
 
-BASE_URL = "https://api.jsoncargo.com/api/v1"
+BASE_URL = "http://api.jsoncargo.com/api/v1"
 
 
 class Client:

@@ -20,3 +20,6 @@ htmlcov/
 # IDE
 .vscode/
 .idea/
+
+# Agent instructions (internal)
+CLAUDE.md

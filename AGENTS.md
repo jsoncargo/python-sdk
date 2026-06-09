@@ -1,171 +1,139 @@
-# JSONCargo Python SDK
+# JSONCargo Python SDK — Agent Reference
 
-A lightweight Python client library for the [JSONCargo](https://jsoncargo.com) container tracking API.
+Python client for the [JSONCargo](https://jsoncargo.com) container tracking API.
+It wraps a REST API for tracking containers, bills of lading, and vessels, and
+for looking up ports and terminals.
 
-## Project Overview
+## Getting started
 
-This is a minimal, well-tested Python SDK that wraps the JSONCargo REST API. The library provides:
-- Container tracking by number and shipping line
-- Bill of lading lookups
-- Vessel tracking (basic, pro, bulk)
-- Vessel finder and vessel specs
-- Port finder
-- Terminal finder
-- API usage statistics
+```python
+from jsoncargo import Client
 
-**Key constraint**: `shipping_line` is a **mandatory parameter** for all container operations.
-
-## Project Structure
-
-```
-jsoncargo/
-├── __init__.py           # Package exports (Client, all models, all exceptions)
-├── client.py             # Main Client class, HTTP transport, error handling
-├── containers.py         # ContainersResource: track() and from_bol() + input validation
-├── vessels.py            # VesselsResource: basic(), pro(), bulk(), finder(), specs()
-├── ports.py              # PortsResource: find()
-├── terminals.py          # TerminalsResource: find()
-├── models.py             # All data models (Container, BolResult, VesselBasic,
-│                         #   VesselPro, VesselBulkResult, VesselInfo, Port, Terminal)
-└── exceptions.py         # Custom exception hierarchy
-
-tests/
-├── __init__.py
-└── test_client.py        # 102 tests (no real API key or network required)
-
-.github/
-└── workflows/
-    └── publish.yml       # Auto-publish to PyPI on version tag (e.g. v0.1.2)
-
-pyproject.toml            # Package metadata and dependencies
-README.md                 # User-facing documentation
+client = Client("your_api_key")
 ```
 
-## Important Conventions
+`Client(api_key, base_url="https://api.jsoncargo.com/api/v1", timeout=30)` —
+`api_key` is required (empty raises `ValueError`). Resources are reached as
+`client.containers`, `client.vessels`, `client.ports`, `client.terminals`.
+`client.stats()` returns a dict with `plan`, `requests_total`, `requests_made`,
+`requests_available`.
 
-### 1. Shipping Line is Mandatory
-All container tracking operations require `shipping_line`:
-- `track(tracking_number: str, shipping_line: str)` — always required
-- `from_bol(bill_of_lading: str, shipping_line: str)` — always required
+## Public API surface
 
-Valid values: `MAERSK`, `HAPAG_LLOYD`, `HMM`, `ONE`, `EVERGREEN`, `MSC`, `CMA_CGM`, `COSCO`, `ZIM`, `YANG_MING`, `PIL`
+### `client.containers`
 
-If omitted or invalid, a `ValueError` is raised immediately (before any HTTP call).
+```python
+track(tracking_number: str, shipping_line: str) -> Container
+from_bol(bill_of_lading: str, shipping_line: str) -> BolResult
+```
 
-### 2. Input Validation
-- Container numbers are validated against ISO 6346: 4 uppercase letters + 7 digits (e.g. `MSCU1234567`).
-- BOL numbers are checked for path traversal and URL-special characters (`/`, `\`, `..`, `%`, `#`, `?`, `&`, `+`, null bytes).
-- Vessel methods (`basic`, `pro`, `bulk`, `specs`) require at least one of `uuid`, `mmsi`, or `imo` — checked with `is None` comparisons, not truthiness.
-- `terminals.find()` requires `unlocode` with at least 2 non-whitespace characters; the value is stripped before use.
-- All validation happens before the HTTP request is made.
+- `shipping_line` is **always required** for both methods.
+- `tracking_number` must match ISO 6346: 4 uppercase letters + 7 digits
+  (e.g. `MSCU1234567`).
 
-### 3. Exception Hierarchy
-All SDK exceptions live in `jsoncargo/exceptions.py` and are exported from the package root:
+### `client.vessels`
+
+All keyword-only. `basic`, `pro`, `bulk`, and `specs` require **at least one** of
+`uuid`, `mmsi`, or `imo`.
+
+```python
+basic(*, uuid=None, mmsi=None, imo=None, page=None, limit=None) -> VesselBasic
+pro(*,   uuid=None, mmsi=None, imo=None, page=None, limit=None) -> VesselPro
+bulk(*,  uuid=None, mmsi=None, imo=None, page=None, limit=None) -> VesselBulkResult
+specs(*, uuid=None, mmsi=None, imo=None, page=None, limit=None) -> VesselInfo
+
+finder(*, name=None, fuzzy=None, vessel_type=None, type_specific=None,
+       country_iso=None, gross_tonnage_min=None, gross_tonnage_max=None,
+       deadweight_min=None, deadweight_max=None, length_min=None, length_max=None,
+       breadth_min=None, breadth_max=None, year_built_min=None, year_built_max=None,
+       next=None, page=None, limit=None) -> list[VesselInfo]
+```
+
+- `finder()` requires at least one search parameter.
+- Use `vessel_type` (not `type`) to filter by vessel type.
+
+### `client.ports`
+
+```python
+find(*, lat=None, lon=None, radius=None, name=None, country_iso=None,
+     port_type=None, fuzzy=None, page=None, limit=None) -> list[Port]
+```
+
+- Requires at least one search parameter.
+
+### `client.terminals`
+
+```python
+find(unlocode: str, *, page=None, limit=None) -> list[Terminal]
+```
+
+- `unlocode` must be at least 2 non-whitespace characters.
+
+## Constraints
+
+- `shipping_line` is mandatory for `track()` and `from_bol()`, and must be one of:
+  `MAERSK`, `HAPAG_LLOYD`, `HMM`, `ONE`, `EVERGREEN`, `MSC`, `CMA_CGM`, `COSCO`,
+  `ZIM`, `YANG_MING`, `PIL`.
+- Container numbers must match ISO 6346 (4 uppercase letters + 7 digits).
+- `bill_of_lading` must not contain `/`, `\`, `%`, `#`, `?`, `&`, `+`, null bytes, or `..` sequences (rejected before any request).
+- Vessel `basic`/`pro`/`bulk`/`specs` require at least one of `uuid`, `mmsi`, `imo`.
+- `vessels.finder()` and `ports.find()` require at least one search parameter.
+- `terminals.find()` requires `unlocode` of at least 2 non-whitespace characters.
+- Invalid arguments raise `ValueError` before any request is made.
+
+## Exceptions
+
+All SDK errors derive from `JSONCargoError`. Catch these instead of `requests`
+exceptions — HTTP and network failures are always mapped to one of these.
 
 ```
 JSONCargoError          # base class
-├── AuthenticationError # 401/403 — bad or missing API key
-├── NotFoundError       # 404 — resource not found
-├── RateLimitError      # 429 — rate limit exceeded
-└── APIError            # everything else (5xx, timeouts, bad JSON)
-    └── .status_code    # HTTP status code, if available
+├── AuthenticationError # invalid or missing API key (HTTP 401/403)
+├── NotFoundError       # resource not found (HTTP 404)
+├── RateLimitError      # rate limit exceeded (HTTP 429)
+└── APIError            # everything else (5xx, timeouts, bad/malformed JSON);
+                        #   has a .status_code attribute (may be None)
 ```
 
-Callers should catch SDK exceptions, not `requests` exceptions.
+## Models
 
-### 4. Models Use Simple Data Classes
-All model classes follow the same pattern:
-- Accept a `dict` in `__init__()`
-- Use `.get()` to safely extract fields (defaults to `None`)
-- Store the full raw response in `.raw`
-- Implement `__repr__()` for debugging
+Every model exposes a `raw` dict with the full response payload.
 
-Models: `Container`, `BolResult`, `VesselBasic`, `VesselPro`, `VesselBulkResult`, `VesselInfo`, `Port`, `Terminal`
+- `Container` — full container tracking: `container_id`, `container_type`,
+  `status` (maps from the `container_status` raw key), `tare`, shipping line,
+  origin/destination, ATD/ETA, last/next location, loading/discharging ports,
+  vessel and voyage info, `bill_of_lading`, `customs_clearance`, `last_updated`.
+- `BolResult` — `bill_of_lading`, `shipping_line_name`, `shipping_line_id`,
+  `associated_containers` (count), `associated_container_numbers` (list of str),
+  `last_updated`.
+- `VesselBasic` — identity (`uuid`, `name`, `mmsi`, `imo`, `eni`, `country_iso`),
+  type (`type`, `type_specific`), position (`lat`, `lon`, `speed`, `course`,
+  `heading`), navigation status, destination, last position and ETA timestamps.
+- `VesselPro` — superset of `VesselBasic` adding `current_draught`,
+  `dest_port_uuid`, `dest_port`, `dest_port_unlocode`, `dep_port_uuid`,
+  `dep_port`, `dep_port_unlocode`, `atd_epoch`, `atd_UTC`, `timezone_offset_sec`,
+  `timezone`.
+- `VesselBulkResult` — `total` (int) and `vessels` (list of `VesselBasic`).
+- `VesselInfo` — full vessel specification: identity (`uuid`, `name`, `name_ais`,
+  `mmsi`, `imo`, `eni`, `country_iso`, `country_name`, `callsign`), type,
+  tonnage/deadweight/TEU, `liquid_gas`, dimensions, draught stats (`draught_avg`,
+  `draught_max`), speed stats (`speed_avg`, `speed_max`), `year_built`,
+  `is_navaid`, `home_port`. Returned by `finder()` and `specs()`.
+- `Port` — `uuid`, `name`, `unlocode`, `type`, `size`, `area`, `area_lvl1`,
+  `area_lvl2`, `city`, `country_iso`, `country_name`, location (`lat`, `lon`).
+- `Terminal` — `unlocode`, `alt_unlocode`, `code`, `terminal_name`,
+  `company_name`, location, `url`, `address`.
 
-### 5. Client Pattern
-The `Client` class (`client.py`):
-- Requires `api_key` at init (raises `ValueError` if empty)
-- Accepts optional `timeout` (default 30s, pass `None` to disable)
-- Uses `requests.Session` with `x-api-key` header over HTTPS
-- All HTTP errors are mapped to custom exceptions in `_get()`
-- Exposes: `client.containers`, `client.vessels`, `client.ports`, `client.terminals`, `client.stats()`
+## File structure
 
-### 6. Parameter Handling
-Resource methods strip `None` values from the params dict before calling `_get()`:
-```python
-params = {k: v for k, v in params.items() if v is not None}
 ```
-This ensures only provided parameters are sent to the API.
-
-The `vessel_type` parameter in `VesselsResource.finder()` is mapped to the `"type"` key to avoid shadowing the Python builtin.
-
-## Running Tests
-
-```bash
-pytest tests/ -v
+jsoncargo/client.py       # Client + resource wiring
+jsoncargo/containers.py   # track(), from_bol()
+jsoncargo/vessels.py      # basic(), pro(), bulk(), finder(), specs()
+jsoncargo/ports.py        # find()
+jsoncargo/terminals.py    # find()
+jsoncargo/models.py       # Container, BolResult, VesselBasic, VesselPro,
+                          # VesselBulkResult, VesselInfo, Port, Terminal
+jsoncargo/exceptions.py   # JSONCargoError hierarchy
+jsoncargo/__init__.py     # Public exports
 ```
-
-Tests use `unittest.mock` — no real API key or network access needed.
-
-## Build & Publish
-
-```bash
-pip install build twine
-python -m build
-python -m twine upload dist/*
-```
-
-## Release & Publishing
-
-Tagging a release on GitHub automatically publishes the package to PyPI via `.github/workflows/publish.yml`.
-
-1. Bump the version in `pyproject.toml` and `jsoncargo/__init__.py` (keep them in sync)
-2. Commit and push
-3. Create and push a version tag: `git tag v0.1.2 && git push origin v0.1.2`
-4. The workflow builds and uploads to PyPI automatically
-
-## Common Patterns
-
-### Adding a New API Endpoint
-1. Add a method to the appropriate `*Resource` class (or create a new resource file)
-2. Call `self._client._get(path, params)` — it handles errors and returns the parsed JSON body
-3. Extract `data["data"]` and return a model object (or list of model objects for list endpoints)
-4. Add tests in `tests/test_client.py` using mocks
-5. Update `README.md` and docstrings
-6. Export new models from `jsoncargo/__init__.py` and add to `__all__`
-7. Wire up new resource in `client.py __init__`
-
-### Adding a New Model Field
-1. Add the field to the model class in `models.py`
-2. Update the docstring
-3. Update the README field table
-4. Add a test verifying extraction
-
-### Adding a New Exception Type
-1. Add the class to `jsoncargo/exceptions.py` (subclass `JSONCargoError`)
-2. Export it in `jsoncargo/__init__.py`
-3. Map the relevant HTTP status code in `client.py _get()`
-
-## Key Files
-
-| File | Purpose | Edit when |
-|---|---|---|
-| `jsoncargo/client.py` | HTTP transport, error mapping, resource wiring | Changing auth, timeout, error handling, adding resources |
-| `jsoncargo/containers.py` | Container/BOL methods + validation | Adding/modifying track() or from_bol() |
-| `jsoncargo/vessels.py` | Vessel tracking/finder/specs methods | Adding/modifying vessel endpoints |
-| `jsoncargo/ports.py` | Port finder method | Adding/modifying port endpoints |
-| `jsoncargo/terminals.py` | Terminal finder method | Adding/modifying terminal endpoints |
-| `jsoncargo/models.py` | Data classes | Adding new response fields or models |
-| `jsoncargo/exceptions.py` | Custom exceptions | Adding new error types |
-| `jsoncargo/__init__.py` | Package exports | Adding new public symbols |
-| `tests/test_client.py` | Full test suite | Always — any change needs a test |
-| `pyproject.toml` | Package metadata | Bumping version, adding dependencies |
-| `README.md` | User docs | Any user-facing change |
-
-## Development Notes
-
-- **Python version**: 3.8+ (see `pyproject.toml`)
-- **Dependencies**: Only `requests` (minimal footprint)
-- **Versioning**: Keep `__version__` in `__init__.py` in sync with `pyproject.toml`
-- **Commits**: Use conventional commits — `fix:`, `feat:`, `docs:`, `chore:`
-- **HTTPS**: The base URL is always `https://` — do not downgrade to HTTP
